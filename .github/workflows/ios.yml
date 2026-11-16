@@ -1,0 +1,54 @@
+name: Build iOS app
+
+on:
+  push:
+    branches: [main]
+    paths: ['ios/**', '.github/workflows/ios.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Build (unsigned)
+        working-directory: ios
+        run: |
+          xcodebuild -project PilgiCam.xcodeproj -target PilgiCam \
+            -configuration Release -sdk iphoneos \
+            SYMROOT="$PWD/build" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build > build.log 2>&1 || { grep -E "error:" build.log | head -50; tail -n 30 build.log; exit 1; }
+          test -d build/Release-iphoneos/PilgiCam.app
+
+      - name: Package .ipa
+        working-directory: ios
+        run: |
+          mkdir -p Payload
+          cp -R build/Release-iphoneos/PilgiCam.app Payload/
+          zip -qry PilgiCam.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PilgiCam-ipa
+          path: ios/PilgiCam.ipa
+
+      - name: Publish to "latest" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest -y --cleanup-tag || true
+          gh release create latest ios/PilgiCam.ipa \
+            --title "필기캠 최신 빌드" \
+            --notes "Windows에서 Sideloadly로 PilgiCam.ipa를 아이폰에 설치하세요. (빌드 ${GITHUB_SHA::7})"
