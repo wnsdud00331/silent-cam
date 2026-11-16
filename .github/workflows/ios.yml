@@ -1,17 +1,22 @@
 name: Build iOS app
 
 on:
+  workflow_dispatch:
+    inputs:
+      runner:
+        description: runner label
+        default: macos-15-intel
   push:
     branches: [main]
     paths: ['ios/**', '.github/workflows/ios.yml']
-  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: ${{ inputs.runner || 'macos-15-intel' }}
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 
