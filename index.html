@@ -2,10 +2,13 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<!-- viewport-fit=cover 를 쓰지 않음: 화면이 상태 표시줄·Safari 툴바 밑으로 들어가 흐리게 덮이는 것을 막음 -->
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' blob: data:; media-src blob: mediastream:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="필기캠">
 <meta name="theme-color" content="#000000">
 <title>필기캠</title>
@@ -26,12 +29,13 @@
   [hidden] { display: none !important; }
   p, h1, h2 { word-break: keep-all; }
   html, body { height: 100%; margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font); overflow: hidden; }
-  body { position: fixed; inset: 0; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  body { position: fixed; top: 0; left: 0; right: 0; height: var(--app-h, 100%); touch-action: manipulation; user-select: none; -webkit-user-select: none; }
   button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
   button:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
   svg { display: block; }
 
   /* ── 카메라 화면 ── */
+  /* 실제로 보이는 높이(--app-h)만큼만 써서 아래 툴바에 셔터가 가리지 않게 함 */
   #cam { position: absolute; inset: 0; display: flex; flex-direction: column; }
 
   .topbar {
@@ -257,6 +261,19 @@
 
 <script>
 (() => {
+  // 다른 사이트가 이 페이지를 몰래 끼워 넣어(iframe) 카메라를 쓰지 못하게 막음
+  if (window.top !== window.self) { document.body.innerHTML = ''; return; }
+
+  // 툴바·홈 인디케이터를 뺀, 실제로 보이는 높이에 맞춰 화면을 배치
+  const fitHeight = () => {
+    const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    document.documentElement.style.setProperty('--app-h', Math.round(h) + 'px');
+  };
+  fitHeight();
+  window.visualViewport?.addEventListener('resize', fitHeight);
+  window.addEventListener('resize', fitHeight);
+  window.addEventListener('orientationchange', () => setTimeout(fitHeight, 300));
+
   const $ = id => document.getElementById(id);
   const video = $('video'), viewport = $('viewport');
   const shots = []; // {blob, url, name, time}
